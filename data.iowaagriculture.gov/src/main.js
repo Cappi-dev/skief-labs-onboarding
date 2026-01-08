@@ -21,11 +21,11 @@ async function main() {
             allResults = allResults.concat(pageData);
 
             // 2. Look for the "Next >" button
-            const nextButton = await page.$('button::-p-text(Next >)'); // Specific Puppeteer selector for text
+            const nextButton = await page.$('button::-p-text(Next >)'); 
             
             if (nextButton) {
                 await nextButton.click();
-                // Wait for the table to update/network to settle
+                // Wait for network to settle to ensure new data is loaded
                 await page.waitForNetworkIdle();
                 pageNum++;
             } else {
@@ -34,15 +34,28 @@ async function main() {
             }
         }
 
-        const outputPath = path.join(__dirname, '../output/veterinarians.json');
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+        // --- EXPORT LOGIC ---
+
+        // 1. Save as JSONL 
+        const outputPathJSONL = path.join(__dirname, '../output/veterinarians.jsonl');
+        const jsonlContent = allResults.map(record => JSON.stringify(record)).join('\n');
+        fs.writeFileSync(outputPathJSONL, jsonlContent);
+
+        // 2. Save as 
+        const outputPathCSV = path.join(__dirname, '../output/veterinarians.csv');
+        const headers = Object.keys(allResults[0]).join(',');
+        const csvRows = allResults.map(row => Object.values(row).map(val => `"${val}"`).join(','));
+        const csvContent = [headers, ...csvRows].join('\n');
+        fs.writeFileSync(outputPathCSV, csvContent);
         
-        console.log(`✅ Success! Extracted ${allResults.length} total records to output/veterinarians.json`);
+        console.log(`✅ Success! Extracted ${allResults.length} total records.`);
+        console.log(`Files saved to: \n - ${outputPathJSONL} \n - ${outputPathCSV}`);
 
     } catch (error) {
         console.error('Execution Error:', error);
     } finally {
         if (browser) await browser.close();
+        console.log('Browser closed.');
     }
 }
 

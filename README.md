@@ -22,10 +22,11 @@ As a Data Scraping Intern, my focus is on collecting, structuring, and preparing
 * **Completed:** Developed `scrape_quotes.py` to collect text and authors from a live site and export them to a structured CSV.
 * **Documentation:** [Day 2 Notes](./week1-learning/notes/day2_notes.md)
 
-### Day 3: Browser Automation & Dynamic Scraping
-* [cite_start]**Objective:** Master Puppeteer for handling JavaScript-heavy websites [cite: 104-106].
-* [cite_start]**Completed:** Automated browser navigation, captured page screenshots, and extracted dynamic links into structured JSON [cite: 145-146].
-* [cite_start]**Technical Fix:** Implemented a `.gitignore` to maintain a clean repository by excluding `node_modules`[cite: 177, 180].
+### Day 3: Browser Automation & Modular Challenges
+* **Objective:** Master Puppeteer for handling JavaScript-heavy websites and complex modular structures.
+* **Completed:** Automated browser navigation and extracted dynamic links into structured JSON.
+* **Challenge Accomplished:** Built a production-ready scraper for the Iowa Veterinarian site with full pagination.
+* **Technical Fix:** Implemented root and local `.gitignore` files to exclude `node_modules` and keep the repo clean.
 * **Documentation:** [Day 3 Notes](./week1-learning/notes/day3_notes.md)
 
 ---
@@ -34,14 +35,16 @@ As a Data Scraping Intern, my focus is on collecting, structuring, and preparing
 
 ### Iowa Veterinarian Data Extraction
 * **Target:** [data.iowaagriculture.gov](https://data.iowaagriculture.gov/licensing_lists/veterinarians/)
-* [cite_start]**Status:** Initialized project structure following Skief Modular Boilerplate (src/parsers/services) [cite: 201-216].
-* [cite_start]**Goal:** Extract veterinarian contact data and map to internal standard field names [cite: 24-39].
+* **Status:** **Completed (Phase 1)**.
+* **Structure:** Followed Skief Modular Boilerplate (src/parsers, src/services).
+* **Achievement:** Successfully extracted **3,092 records** including License Number, Full Name, City, State, Expiration Date, and License Status.
+* **Logic:** Implemented dynamic state extraction to handle out-of-state licenses (NE, IL, CA) and automated pagination to navigate all 124 pages.
 
 ---
 
 ## 📜 Core Principles Followed
-* [cite_start]**Correctness > Speed:** Ensuring data integrity and clean formatting before delivery[cite: 74].
-* [cite_start]**Structured Data > Raw Output:** Normalizing data into CSV/JSONL for immediate use [cite: 145-146].
-* [cite_start]**Documentation > Memory:** Maintaining clear, accessible logs of all technical processes [cite: 191-192, 229].
+* **Correctness > Speed:** Ensuring data integrity (fixing state extraction) and clean formatting.
+* **Structured Data > Raw Output:** Normalizing data into JSON for immediate use.
+* **Documentation > Memory:** Maintaining clear, accessible logs of all technical processes.
 
 *Intern: Jes Emanuel Chavez*
