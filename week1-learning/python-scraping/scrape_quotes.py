@@ -13,7 +13,8 @@ soup = BeautifulSoup(response.text, 'html.parser')
 quote_elements = soup.find_all('div', class_='quote')
 
 # 4. Save to CSV
-with open('quotes.csv', 'w', newline='', encoding='utf-8-sig') as file:
+
+with open('quotes.csv', 'w', newline='', encoding='utf-8') as file:
     writer = csv.writer(file)
     writer.writerow(["Quote", "Author"]) 
 
