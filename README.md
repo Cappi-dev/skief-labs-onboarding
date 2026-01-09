@@ -29,6 +29,12 @@ As a Data Scraping Intern, my focus is on collecting, structuring, and preparing
 * **Technical Fix:** Implemented root and local `.gitignore` files to exclude `node_modules` and keep the repo clean.
 * **Documentation:** [Day 3 Notes](./week1-learning/notes/day3_notes.md)
 
+### Day 4: Data Cleaning & Normalization (Pandas)
+* **Objective**: Transform raw, "dirty" data into a standardized, machine-ready format using Python/Pandas.
+* **Completed**: Developed `clean_quotes.py` to perform automated data hygiene tasks.
+* **Technical Fix**: Resolved character encoding mismatches between UTF-8 and Excel (UTF-8-SIG) to fix "garbage" character rendering.
+* **Normalization Logic**: Implemented whitespace stripping, duplicate removal, and created a standardized lowercase column for keyword searching.
+* **Documentation**: [Day 4 Notes](./week1-learning/notes/day4_notes.md)
 ---
 
 ## 🚀 Active Projects
