@@ -37,6 +37,20 @@ As a Data Scraping Intern, my focus is on collecting, structuring, and preparing
 * **Documentation**: [Day 4 Notes](./week1-learning/notes/day4_notes.md)
 ---
 
+## 🚀 Specialized Task: API-Based Data Extraction (Non-Browser)
+
+### Objective
+To demonstrate high-efficiency data collection by bypassing the browser and interacting directly with a government API.
+
+### Project: Gouv-FR API Scraper
+* **Target**: `pour-les-personnes-agees.gouv.fr` API.
+* **Logic**: Iteratively looped through **101 department codes** (01-976) to fetch structured data.
+* **Optimization**: Used `axios` for non-browser requests, reducing resource consumption and execution time by ~90% compared to Puppeteer.
+* **Data Engineering**: 
+    * **JSONL**: Saved raw responses in JSON Lines format for big-data compatibility.
+    * **Flattened CSV**: Developed a custom recursive function to transform nested JSON objects into a flat table structure.
+* **Resilience**: Implemented error handling to manage `ECONNRESET` server interruptions without stopping the full process.
+
 ## 🚀 Active Projects
 
 ### Iowa Veterinarian Data Extraction
