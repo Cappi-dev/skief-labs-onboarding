@@ -1,1 +1,8 @@
+# Data Outputs
+*.csv
+*.jsonl
+*.json
+output/
+
+# Dependencies
 node_modules/

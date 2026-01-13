@@ -10,6 +10,7 @@ async function scrapeQuotes() {
     console.log('--- Day 6: Pagination Task Starting ---');
 
     while (currentPage) {
+        console.log(`Scraping: ${currentPage}`);
         await page.goto(currentPage);
         
         // Extract data using CSS selectors
@@ -32,13 +33,37 @@ async function scrapeQuotes() {
         }
     }
 
-    // Export to CSV
-    const csvHeader = 'Quote,Author\n';
-    const csvRows = allQuotes.map(q => `"${q.text.replace(/"/g, '""')}","${q.author}"`).join('\n');
+    // --- PREPARE DATA FOR EXPORT ---
+    const scrapedAt = new Date().toISOString();
+    const sourceUrl = 'https://quotes.toscrape.com';
 
-    fs.writeFileSync('output/day6_quotes.csv', csvHeader + csvRows);
+    const finalData = allQuotes.map(q => ({
+        quoteText: q.text,
+        authorName: q.author,
+        sourceUrl: sourceUrl,
+        scrapedAt: scrapedAt
+    }));
+
+    // Ensure output directory exists
+    if (!fs.existsSync('output')) {
+        fs.mkdirSync('output');
+    }
+
+    // --- EXPORT TO CSV ---
+    const csvHeader = 'quoteText,authorName,sourceUrl,scrapedAt\n';
+    const csvRows = finalData.map(q => 
+        `"${q.quoteText.replace(/"/g, '""')}","${q.authorName}","${q.sourceUrl}","${q.scrapedAt}"`
+    ).join('\n');
+    
+    // Using the required naming convention for the file
+    fs.writeFileSync('output/output_quotes.toscrape.com_quotes_2026.csv', csvHeader + csvRows);
+
+    // --- EXPORT TO JSONL ---
+    const jsonlData = finalData.map(q => JSON.stringify(q)).join('\n');
+    fs.writeFileSync('output/output_quotes.toscrape.com_quotes_2026.jsonl', jsonlData);
     
     console.log(`✅ Success! Extracted ${allQuotes.length} quotes.`);
+    console.log(`📂 Files saved to /output with camelCase headers.`);
     await browser.close();
 }
 
