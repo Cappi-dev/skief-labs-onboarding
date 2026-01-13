@@ -35,6 +35,22 @@ As a Data Scraping Intern, my focus is on collecting, structuring, and preparing
 * **Technical Fix**: Resolved character encoding mismatches between UTF-8 and Excel (UTF-8-SIG) to fix "garbage" character rendering.
 * **Normalization Logic**: Implemented whitespace stripping, duplicate removal, and created a standardized lowercase column for keyword searching.
 * **Documentation**: [Day 4 Notes](./week1-learning/notes/day4_notes.md)
+
+### Day 5: Week 1 Review & Consolidation
+* **Objective:** Reflect on foundational scrapers and prepare for advanced automation.
+* **Completed:** Conducted a comprehensive review of Week 1 scripts and established a high-standard "Gold Standard" for data extraction.
+* **Conceptual Exposure:** Explored n8n for workflow automation and low-code integration possibilities.
+* **Consolidation:** Verified logic for the Arizona Veterinarian project, ensuring recursive API handling was production-ready.
+* **Documentation:** [Day 5 Recap](./week1-learning/notes/day5_notes.md)
+
+## 📅 Week 2 — Pagination, Anti-Blocking & Mini-Projects
+
+### Day 6: Selectors & Pagination
+* **Objective:** Master dynamic pagination patterns and robust CSS selector identification.
+* **Completed:** Built a Playwright-based scraper for `quotes.toscrape.com` that automatically navigates through all 10 pages.
+* **Logic:** Implemented a dynamic `while` loop that follows the "Next" button `href` rather than hardcoding page numbers, ensuring resilience against site changes.
+* **Structure:** Established a standardized `/output` folder pattern to separate source code from generated data.
+* **Documentation:** [Day 6 Notes](./week2-learning/notes/day6_notes.md)
 ---
 
 ## 🚀 Specialized Task: API-Based Data Extraction (Non-Browser)
