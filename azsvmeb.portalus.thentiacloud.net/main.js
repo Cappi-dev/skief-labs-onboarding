@@ -26,7 +26,6 @@ async function main() {
 
     let skip = loadState(); 
     const take = 20;
-    const burstLimit = skip + 500; 
 
     // Automated header logic
     if (skip === 0 && !fs.existsSync(csvPath)) {
@@ -35,15 +34,18 @@ async function main() {
         console.log("--- Created fresh CSV with verified dynamic headers ---");
     }
 
-    console.log(`--- [STARTING FINAL GOLD RUN] Current Skip: ${skip} | Target: ${burstLimit} ---`);
+    // FIXED: Removed 'Target: burstLimit' since we are running to completion now
+    console.log(`--- [STARTING FINAL GOLD RUN] Current Skip: ${skip} ---`);
 
-    while (skip < burstLimit) {
+    // FIXED: Changed to 'while (true)' so it scrapes until no more data is found
+    while (true) { 
         const searchResults = await searchProfiles(skip, take);
         const results = searchResults?.result?.dataResults;
 
         if (!results || results.length === 0) break;
 
         for (const summary of results) {
+            // Standard 15-20s randomized delay for anti-blocking
             const wait = Math.floor(Math.random() * 5000) + 15000;
             console.log(`Waiting ${wait/1000}s for Profile ${summary.id}...`);
             await new Promise(r => setTimeout(r, wait));
@@ -52,14 +54,9 @@ async function main() {
             if (details) {
                 const { jsonl, csv } = parseAndMerge(summary, details, 'https://azsvmeb.portalus.thentiacloud.net/webs/portal/register/#/');
                 
-                // Save the full raw data to JSONL
                 fs.appendFileSync(jsonlPath, JSON.stringify(jsonl) + '\n');
                 
-                // --- DYNAMIC SEARCH LOGIC ---
-                // We search all flattened keys for partial matches to extract the data 
-                // regardless of dots, underscores, or camelCasing.
                 const allKeys = Object.keys(csv);
-                
                 const educationKey = allKeys.find(k => k.toLowerCase().includes('education0'));
                 const educationValue = educationKey ? csv[educationKey] : "None Listed";
 
@@ -89,7 +86,8 @@ async function main() {
         saveState(skip);
         console.log(`--- Progress Saved: ${skip} records complete ---`);
     }
-    console.log(`\n✅ BURST FINISHED. Current record: ${skip}.`);
+    // FIXED: Final log message
+    console.log(`\n✅ SCRAPE FINISHED. Total record count: ${skip}.`);
 }
 
 main().catch(err => console.error('Critical Error:', err));
