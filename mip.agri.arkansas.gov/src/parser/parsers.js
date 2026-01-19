@@ -1,22 +1,17 @@
 const parseAndMerge = (searchItem, profileDetails, sourceHost) => {
     const data = {};
 
-    // 1. HELPER: Recursive function to flatten nested objects/arrays
     const flatten = (obj, prefix = '') => {
         if (!obj) return;
         Object.keys(obj).forEach(key => {
             const value = obj[key];
             const newKey = prefix ? `${prefix}_${key}` : key;
-
             if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
                 flatten(value, newKey);
             } else if (Array.isArray(value)) {
                 value.forEach((item, index) => {
-                    if (typeof item === 'object') {
-                        flatten(item, `${newKey}_${index}`);
-                    } else {
-                        data[`${newKey}_${index}`] = item;
-                    }
+                    if (typeof item === 'object') flatten(item, `${newKey}_${index}`);
+                    else data[`${newKey}_${index}`] = item;
                 });
             } else {
                 data[newKey] = value;
@@ -24,36 +19,41 @@ const parseAndMerge = (searchItem, profileDetails, sourceHost) => {
         });
     };
 
-    // 2. Process Search Data
     flatten(searchItem, 'search');
-
-    // 3. Process Profile Details
     flatten(profileDetails, 'profile');
 
-    // 4. Mapped/Formatted Primary Keys (Updated to match your Test Result keys)
+    // HELPER: Extract City, State, Zip from a raw address string if it exists
+    const rawAddr = searchItem.address || data.profile_Address || '';
+    let city = searchItem.city || data.profile_city || '';
+    let state = searchItem.state || data.profile_state || '';
+    let zipCode = searchItem.zipCode || data.profile_zipCode || '';
+
+    // If those fields are blank, try to parse them from the raw address string (e.g., "LITTLE ROCK, AR 72201")
+    if (!city && rawAddr.includes(',')) {
+        const parts = rawAddr.replace(/<br>/g, ' ').split(',');
+        city = parts[0].trim();
+        if (parts[1]) {
+            const stateZip = parts[1].trim().split(' ');
+            state = stateZip[0];
+            zipCode = stateZip[1] || '';
+        }
+    }
+
     const normalized = {
         licenseNumber: searchItem.licenseNumber || data.profile_licenseNumber || '',
-        // Extraction from the 'licensee' HTML or searchItem.lastName
-        firstName: searchItem.firstName || '', // Search API sometimes doesn't have firstName separate
-        lastName: searchItem.lastName || '',
+        firstName: searchItem.firstName || data.profile_firstName || '', // Usually empty in Search API
+        lastName: searchItem.lastName || data.profile_lastName || '',
         fullName: searchItem.licensee ? searchItem.licensee.split('<br>')[0].replace(/<[^>]*>?/gm, '') : `${searchItem.lastName || ''}`,
         licenseStatus: searchItem.status || data.profile_status || '',
         licenseType: searchItem.lType || data.profile_licenseType || '',
-        // Location data
-        city: searchItem.city || data.profile_city || '',
-        state: searchItem.state || data.profile_state || '',
-        zipCode: searchItem.zipCode || data.profile_zipCode || '',
+        city: city,
+        state: state,
+        zipCode: zipCode,
         expirationDate: searchItem.exp_date || data.profile_expirationDate || '',
-        
-        // Metadata
         scrapedAt: new Date().toISOString(),
         sourceUrl: `https://${sourceHost}/VetLicensingPortal/Guest/Home/Licensee_Search`,
         profileUrl: `https://${sourceHost}/VetLicensingPortal/Guest/Home/Get_Licensee_Info?id=${searchItem.licenseNumber}`,
-        
-        // Requirement: Save raw JSON as "rawHTML" for API scrapers
         rawHTML: JSON.stringify(profileDetails),
-        
-        // Append all other recursive data
         ...data
     };
 
