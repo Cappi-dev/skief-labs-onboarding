@@ -82,13 +82,23 @@ As a Data Scraping Intern, my focus is on collecting, structuring, and preparing
     * **Persistence:** Used `state.json` to track progress and allow the scraper to resume after network interruptions.
 * **Status:** 🚀 Active (Scaling to 1,000+ records).
 
-### 3. Gouv-FR API Scraper
+### 3. Arkansas State Project (Advanced API Scraping)
+* **Target Portal:** [mip.agri.arkansas.gov](https://mip.agri.arkansas.gov/VetLicensingPortal/)
+* **Objective:** Extract and de-duplicate unique veterinarian records across 56 state/territory abbreviations.
+* **Technical Achievements:**
+    * **Security Navigation:** Successfully bypassed SSL certificate verification issues and managed `.AspNetCore.Antiforgery` and `TS` security cookies for session persistence.
+    * **Recursive Data Flattening:** Developed a robust `flatten` function to merge multi-source JSON (Search API + Profile API) into a single, unified record.
+    * **Advanced String Parsing:** Solved the "Blank Column" challenge by implementing a regex-based address parser to split raw HTML strings into structured `city`, `state`, and `zipCode` fields.
+* **Data Scale:** Extracted **1,628 unique records** from a raw discovery pool of ~5,900 entries.
+* **Status:** ✅ Completed & Delivered (CSV/JSONL).
+
+### 4. Gouv-FR API Scraper
 * **Target**: `pour-les-personnes-agees.gouv.fr` API.
 * **Logic**: Iteratively looped through **101 department codes** (01-976) to fetch structured data.
 * **Optimization**: Bypassed browser overhead, reducing resource consumption by ~90%.
 * **Flattening**: Developed a custom recursive function to transform nested JSON objects into a flat table structure.
 
-### 4. Iowa Veterinarian Data Extraction
+### 5. Iowa Veterinarian Data Extraction
 * **Target:** [data.iowaagriculture.gov](https://data.iowaagriculture.gov/licensing_lists/veterinarians/)
 * **Achievement:** Extracted **3,092 records** including License Number, Full Name, City, State, Expiration Date, and Status across 124 pages.
 
