@@ -2,7 +2,7 @@ const axios = require('axios');
 
 const BASE_URL = 'https://lbvmprod.portalus.thentiacloud.net/rest/public';
 
-// List of User Agents to rotate
+// List of User Agents to rotate for better scraping health
 const userAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
@@ -46,7 +46,9 @@ async function getProfileDetails(id) {
         );
         return response.data;
     } catch (error) {
+        // Return 429 string so main.js knows to pause for VPN
         if (error.response?.status === 429) return '429';
+        // Return null for 500 errors to trigger the retry loop in main.js
         console.error(`Details Error for ${id}:`, error.message);
         return null;
     }

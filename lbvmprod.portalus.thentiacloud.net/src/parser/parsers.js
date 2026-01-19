@@ -1,52 +1,34 @@
 const parseAndMerge = (summary, details, sourceUrl) => {
-    // 1. Summary Data (Mapped from the search results)
+    // 1. Summary Data (Mapping Search API to camelCase)
     const cols = summary.columnValues || [];
-    const summaryData = {
-        licenseNumber: cols[0]?.data || '',
-        lastName: cols[1]?.data || '',
-        firstName: cols[2]?.data || '',
-        licenseType: cols[3]?.data || '',
-        city: cols[4]?.data || '',
-        zipCode: cols[5]?.data || '',
-    };
-
-    // 2. RECURSIVE MAPPING: Extract all secondary fields dynamically
+    
+    // 2. Extract Details (Mapping Profile API nameValuePairs)
     const deepData = {};
     const pairs = details?.result?.nameValuePairs;
     if (Array.isArray(pairs)) {
         pairs.forEach(pair => {
-            // Converts "REGISTER_PROFILE_LABEL_SPECIALTY" -> "specialty"
+            // Converts "REGISTER_PROFILE_LABEL_LICENSE_NUMBER" -> "license_number"
             const key = pair.name.replace('REGISTER_PROFILE_LABEL_', '').toLowerCase();
             deepData[key] = pair.value;
         });
     }
 
-    // 3. TABLE EXTRACTION: Capture all table records (Addresses, Actions, etc.)
-    const tables = details?.result?.tables;
-    if (Array.isArray(tables)) {
-        tables.forEach((table, tIndex) => {
-            const title = table.tableTitle ? table.tableTitle.replace('REGISTER_PROFILE_HEADING_', '').toLowerCase() : `table_${tIndex}`;
-            if (Array.isArray(table.records)) {
-                table.records.forEach((record, rIndex) => {
-                    if (Array.isArray(record.columnValues)) {
-                        record.columnValues.forEach((col, cIndex) => {
-                            deepData[`${title}_row${rIndex}_col${cIndex}`] = col.data || '';
-                        });
-                    }
-                });
-            }
-        });
-    }
-
-    // 4. MERGE EVERYTHING
+    // 3. Normalized Merged Object (Exactly matching your Excel requirement)
     const merged = {
-        ...summaryData,
-        ...deepData,
-        fullName: details?.result?.pageTitle?.values?.join(' ') || `${summaryData.firstName} ${summaryData.lastName}`,
+        licenseNumber: cols[0]?.data || deepData['license_number'] || '',
+        firstName: cols[2]?.data || deepData['first_name'] || '',
+        lastName: cols[1]?.data || deepData['last_name'] || '',
+        city: cols[4]?.data || deepData['city'] || '',
+        state: deepData['state'] || 'Louisiana',
+        zipCode: cols[5]?.data || deepData['zip_code'] || deepData['zip code'] || '',
+        licenseType: cols[3]?.data || deepData['license_type'] || '',
+        licenseStatus: deepData['license_status'] || '',
+        initialDate: deepData['initial_date'] || '',
+        expirationDate: deepData['expiration_date'] || '',
+        fullName: details?.result?.pageTitle?.values?.join(' ') || `${cols[2]?.data} ${cols[1]?.data}`,
         scrapedAt: new Date().toISOString(),
-        sourceUrl: sourceUrl, // Requirement #1
-        profileUrl: `https://lbvmprod.portalus.thentiacloud.net/webs/portal/register/#/profile/${summary.id}`,
-        // Requirement #3: Save raw JSON as "rawHTML" string for API scrapers
+        sourceUrl: sourceUrl,
+        profileUrl: `https://${sourceUrl}/webs/portal/register/#/profile/${summary.id}`,
         rawHTML: JSON.stringify(details) 
     };
 
