@@ -2,54 +2,44 @@ const axios = require('axios');
 
 const BASE_URL = 'https://lbvmprod.portalus.thentiacloud.net/rest/public';
 
-// List of User Agents to rotate for better scraping health
-const userAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-];
-
 const client = axios.create({
     baseURL: BASE_URL,
     headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json, text/plain, */*',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        // From your image_9ac0d0.png
+        'Cookie': 'PHPSESSID=5sh6ub2ign45bjtifj3jj79htq' 
     }
 });
 
 async function searchProfiles(skip = 0, take = 20) {
     try {
+        // FIX: Changed from .post to .get to match your image_9ac0d0.png
         const response = await client.get('/profile/search/', {
             params: {
                 keyword: 'all',
-                skip,
-                take,
+                skip: skip,
+                take: take,
                 lang: 'en-us',
                 licenseType: 'all',
                 licenseStatus: 'all',
                 disciplined: false
-            },
-            headers: { 'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)] }
+            }
         });
         return response.data;
     } catch (error) {
-        console.error('Search Error:', error.message);
+        console.error(`Search Error: ${error.response?.status || error.message}`);
         return null;
     }
 }
 
 async function getProfileDetails(id) {
     try {
-        const response = await client.post('/custom-public-register/profile/individual/', 
-        { id: id },
-        { headers: { 'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)] } }
-        );
+        // Details remains a POST as per standard Thentia individual profiles
+        const response = await client.post('/custom-public-register/profile/individual/', { id: id });
         return response.data;
     } catch (error) {
-        // Return 429 string so main.js knows to pause for VPN
         if (error.response?.status === 429) return '429';
-        // Return null for 500 errors to trigger the retry loop in main.js
-        console.error(`Details Error for ${id}:`, error.message);
         return null;
     }
 }

@@ -1,73 +1,36 @@
 const axios = require('axios');
-const https = require('https')
-
-const BASE_URL = 'https://mip.agri.arkansas.gov/VetLicensingPortal/Guest/Home';
-
-// User Agents for rotation
-const userAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-];
-
-// List of state abbreviations for the discovery loop
-const stateAbbreviations = [
-    "AK","AL","AP","AR","AZ","CA","CO","CT","DC","DE","FL","FM","GA","GU","HI","IA","ID","IL","IN","KS","KY","LA","MA","MD","ME","MH","MI","MN","MO","MP","MS","MT","NC","ND","NE","NH","NJ","NM","NV","NY","OH","OK","OR","PA","PW","RI","SC","SD","TN","TX","UT","VA","VT","WA","WI","WV","WY"
-];
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const client = axios.create({
-    baseURL: BASE_URL,
-    // 2. Add this agent to ignore the "unable to verify" error
-    httpsAgent: new https.Agent({  
-        rejectUnauthorized: false
-    }),
+    baseURL: 'https://mip.agri.arkansas.gov',
     headers: {
         'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Accept-Language': 'en-US,en;q=0.9',
         'X-Requested-With': 'XMLHttpRequest',
-        'Connection': 'keep-alive',
-        'Cookie': '.AspNetCore.Antiforgery.-M5iseY6GMc=CfDJ8C0A9Z24x0hKu87qqU-_00Y6TuC3BeyPYBtlLYHITMyrsLRZiBbdkbcyKssOwT6XoTA9Nx3urGDUyVUmgcDZAaPt6KvWRrtiPFeF7WCeCKzhtKPJDTQwmVzK7fDRZxhU6kh1t1V5DcEezZHqV8DCveI; TS01bea79f=01a28dbe257fa6b028e93fd0c785a04da948ecf1be491e07e45b6fdafe839b537cf8f25061b2bd526e8c93eb7754a21502c3c0ac0b5217a5abedd5186236d1c4c7db0d8ace981ad7b77526c36a7bc98f98315ea7ee; TS013343a1=01a28dbe25cc66d8d4fedc562eac533c7bbd196647491e07e45b6fdafe839b537cf8f25061167d9ed843504c5f19fa0d484a2915a3'
-    }
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://mip.agri.arkansas.gov/VetLicensingPortal/Guest/Home/Licensee_Search',
+        // Copy these values from your Cookies tab in image_9c91b1.png
+        'Cookie': '.AspNetCore.Antiforgery=CfDJ8C0A9Z24x0hKu87qqU-_00a58xKGfPd5qj-Scai-Q1m7OANvDg9zgUc_qbaJrLAvUa4WxO7MYKQTVKDpwvApk9vmRavt6jKwR02toUcRBqo4dCa1OP8rF8Nvbz_n7vi35CCz81vGMxrCSzi_zUmNUtw; TS01331776=01a28dbe25b2b6280f961f232e759b426289991b565aaea0aeede13c0662d76eadfbcca421f83c51c1914ca551712cfae9ee160592; TS01bea79f=01a28dbe25b8dc2616d095921729421203cd0eb532d1f5500c5992d906a2a7d3ceef4fbda8b9dfedfed783249e48a05fffebc8c23c5b0da6a2b413bab95eb56d8514efc4ae218448af1e91dab2ce7fef61e87f3f06'    }
 });
 
-/**
- * Discovery: Search for licensees by state abbreviation (City parameter)
- */
-async function searchByState(state) {
-    try {
-        const response = await client.get('/Licensee_Search_API', {
-            params: {
-                license: '',
-                lastname: '',
-                business: '',
-                city: state, // The site uses 'city' to filter by state abbreviation
-                zipcode: 'null',
-                _: Date.now() // Timestamp cache-buster
-            },
-            headers: { 'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)] }
-        });
-        
-        // Ensure we return the data array (usually response.data.data or similar)
-        return response.data; 
-    } catch (error) {
-        console.error(`Search Error for State ${state}:`, error.message);
-        return null;
-    }
-}
+const stateAbbreviations = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'];
 
-/**
- * Extraction: Get specific profile details by ID
- */
-async function getProfileDetails(id) {
+const searchByState = async (stateCode) => {
     try {
-        const response = await client.get('/Get_Licensee_Info', {
-            params: { id: id },
-            headers: { 'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)] }
-        });
+        const url = `/VetLicensingPortal/Guest/Home/Licensee_Search_API?license=&lastname=&business=&city=${stateCode}&zipcode=null&_=${Date.now()}`;
+        const response = await client.get(url);
+        return response.data?.data || response.data || [];
+    } catch (error) { return []; }
+};
+
+const getProfileDetails = async (licenseId) => {
+    try {
+        // CHANGED: Using the endpoint you discovered in your Network tab
+        const url = `/VetLicensingPortal/Guest/Home/Get_Licensee_Info?id=${licenseId}&_=${Date.now()}`;
+        const response = await client.get(url);
         return response.data;
     } catch (error) {
-        console.error(`Details Error for ID ${id}:`, error.message);
         return null;
     }
-}
+};
 
 module.exports = { searchByState, getProfileDetails, stateAbbreviations };

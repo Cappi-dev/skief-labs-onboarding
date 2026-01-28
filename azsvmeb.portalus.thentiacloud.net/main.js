@@ -2,92 +2,75 @@ const fs = require('fs');
 const path = require('path');
 const { searchProfiles, getProfileDetails } = require('./src/services/client');
 const { parseAndMerge } = require('./src/parser/parsers');
+const { Parser } = require('json2csv');
 
 const STATE_FILE = path.join(__dirname, 'state.json');
+const domain = 'azsvmeb.portalus.thentiacloud.net';
 
-function loadState() {
-    if (fs.existsSync(STATE_FILE)) {
-        return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')).skip;
-    }
-    return 0;
-}
-
-function saveState(currentSkip) {
-    fs.writeFileSync(STATE_FILE, JSON.stringify({ skip: currentSkip }, null, 2));
-}
+const csvFields = [
+    'licenseNumber', 'firstName', 'lastName', 'fullName', 'licenseType', 'licenseStatus', 
+    'initialRegistrationDate', 'licenseExpirationDate', 'education', 'practiceSites',
+    'publicDisciplinaryActions', 'scrapedAt', 'sourceUrl', 'profileUrl'
+];
 
 async function main() {
-    const domain = 'azsvmeb.portalus.thentiacloud.net';
     const outputDir = path.join(__dirname, 'output');
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 
     const jsonlPath = path.join(outputDir, `output_${domain}_2026.jsonl`);
     const csvPath = path.join(outputDir, `output_${domain}_2026.csv`);
 
-    let skip = loadState(); 
+    // Load state record-by-record
+    let state = fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) : { skip: 0 };
+    let skip = state.skip;
     const take = 20;
 
-    // Automated header logic
-    if (skip === 0 && !fs.existsSync(csvPath)) {
-        const headers = "fullName,firstName,lastName,licenseNumber,licenseType,licenseStatus,licenseExpiryDate,education,practiceSites,scrapedAt,sourceUrl,currentPageUrl\n";
-        fs.writeFileSync(csvPath, headers);
-        console.log("--- Created fresh CSV with verified dynamic headers ---");
-    }
+    console.log(`🚀 [AZ START] Resuming from Skip: ${skip}`);
 
-    // FIXED: Removed 'Target: burstLimit' since we are running to completion now
-    console.log(`--- [STARTING FINAL GOLD RUN] Current Skip: ${skip} ---`);
-
-    // FIXED: Changed to 'while (true)' so it scrapes until no more data is found
-    while (true) { 
+    while (true) {
+        // We use skip as the starting point for the search
         const searchResults = await searchProfiles(skip, take);
         const results = searchResults?.result?.dataResults;
-
-        if (!results || results.length === 0) break;
+        
+        if (!results || results.length === 0) {
+            console.log("🏁 No more records found.");
+            break;
+        }
 
         for (const summary of results) {
-            // Standard 15-20s randomized delay for anti-blocking
-            const wait = Math.floor(Math.random() * 5000) + 15000;
-            console.log(`Waiting ${wait/1000}s for Profile ${summary.id}...`);
+            // UPDATED RANDOMIZER: 15 - 18 seconds
+            const wait = Math.floor(Math.random() * 3000) + 15000;
+            console.log(`⏱️ Waiting ${wait/1000}s for Profile ${summary.id}...`);
             await new Promise(r => setTimeout(r, wait));
 
             const details = await getProfileDetails(summary.id);
             if (details) {
-                const { jsonl, csv } = parseAndMerge(summary, details, 'https://azsvmeb.portalus.thentiacloud.net/webs/portal/register/#/');
+                const { jsonl } = parseAndMerge(summary, details, domain);
                 
+                // Append to JSONL
                 fs.appendFileSync(jsonlPath, JSON.stringify(jsonl) + '\n');
                 
-                const allKeys = Object.keys(csv);
-                const educationKey = allKeys.find(k => k.toLowerCase().includes('education0'));
-                const educationValue = educationKey ? csv[educationKey] : "None Listed";
+                // Regenerate CSV for instant sync
+                const lines = fs.readFileSync(jsonlPath, 'utf8').trim().split('\n');
+                const records = lines.map(line => {
+                    const obj = JSON.parse(line);
+                    return {
+                        ...obj,
+                        publicDisciplinaryActions: JSON.stringify(obj.publicDisciplinaryActions || [])
+                    };
+                });
+                
+                const csvParser = new Parser({ fields: csvFields });
+                fs.writeFileSync(csvPath, csvParser.parse(records));
 
-                const practiceKey = allKeys.find(k => k.toLowerCase().includes('practicesites0'));
-                const practiceValue = practiceKey ? csv[practiceKey] : "None Listed";
-                
-                const values = [
-                    csv["fullName"],
-                    csv["firstName"],
-                    csv["lastName"],
-                    csv["licenseNumber"],
-                    csv["licenseType"],
-                    csv["licenseStatus"],
-                    csv["licenseExpiryDate"],
-                    educationValue,
-                    practiceValue,
-                    csv["scrapedAt"],
-                    csv["sourceUrl"],
-                    csv["currentPageUrl"]
-                ].map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(',');
-                
-                fs.appendFileSync(csvPath, values + '\n');
+                // UPDATE STATE IMMEDIATELY
+                skip++; 
+                fs.writeFileSync(STATE_FILE, JSON.stringify({ skip }));
+
+                console.log(`✅ Saved & State Updated: ${jsonl.fullName} (Total: ${skip})`);
             }
         }
-
-        skip += take;
-        saveState(skip);
-        console.log(`--- Progress Saved: ${skip} records complete ---`);
     }
-    // FIXED: Final log message
-    console.log(`\n✅ SCRAPE FINISHED. Total record count: ${skip}.`);
 }
 
 main().catch(err => console.error('Critical Error:', err));

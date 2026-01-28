@@ -9,7 +9,8 @@ const HEADERS = {
 };
 
 async function searchProfiles(skip = 0, take = 20) {
-    const url = `https://azsvmeb.portalus.thentiacloud.net/rest/public/profile/search/?keyword=all&skip=${skip}&take=${take}&lang=en-us&licenseType=all&licenseStatus=Active&disciplined=false`;
+    
+    const url = `https://azsvmeb.portalus.thentiacloud.net/rest/public/profile/search/?keyword=all&skip=${skip}&take=${take}&lang=en-us&licenseType=all&licenseStatus=all&disciplined=false`;
     try {
         const response = await axios.get(url, { headers: HEADERS });
         return response.data; 
