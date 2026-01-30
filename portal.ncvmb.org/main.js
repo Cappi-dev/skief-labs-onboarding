@@ -1,11 +1,13 @@
 const fs = require('fs');
+const path = require('path');
 const { searchLicense } = require('./src/services/client');
 const { parseProfile } = require('./src/parser/parsers');
 const { Parser } = require('json2csv');
 
-const STATE_FILE = './state.json';
-const OUTPUT_JSONL = './output/ncvmb_2026.jsonl';
-const OUTPUT_CSV = './output/ncvmb_2026.csv';
+const STATE_FILE = path.join(__dirname, 'state.json');
+const OUTPUT_DIR = path.join(__dirname, 'output');
+const JSONL_PATH = path.join(OUTPUT_DIR, 'ncvmb_2026.jsonl');
+const CSV_PATH = path.join(OUTPUT_DIR, 'ncvmb_2026.csv');
 
 const csvFields = [
     'licenseNumber', 'firstName', 'lastName', 'fullName', 'licenseType', 
@@ -13,88 +15,88 @@ const csvFields = [
     'supervisingVet', 'publicDisciplinaryActions', 'scrapedAt', 'sourceUrl'
 ];
 
-async function run() {
-    if (!fs.existsSync('./output')) fs.mkdirSync('./output');
+async function main() {
+    if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-    // Load state safely
-    let state = { lastType: 'VET', lastNum: 0 };
-    if (fs.existsSync(STATE_FILE)) {
-        try {
-            state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-        } catch (e) {
-            console.log("⚠️ State file corrupt, starting from VET #0");
-        }
+    // Load Deduplication Shield
+    const seen = new Set();
+    if (fs.existsSync(JSONL_PATH)) {
+        fs.readFileSync(JSONL_PATH, 'utf8').split('\n').forEach(line => {
+            if (!line) return;
+            const obj = JSON.parse(line);
+            seen.add(`${obj.licenseNumber}-${obj.licenseType}`.toLowerCase());
+        });
     }
 
-    const categories = { 'VET': 'Veterinarian', 'VT': 'Veterinary Technician', 'FAC': 'Faculty' };
-    const typeKeys = Object.keys(categories);
+    let state = { lastType: 'VET', lastNum: 0 };
+    if (fs.existsSync(STATE_FILE)) {
+        state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    }
+
+    // Config for the 3 required license types
+    const categories = [
+        { key: 'VET', prefix: '', pad: 0, streakLimit: 50 },
+        { key: 'VT', prefix: '', pad: 0, streakLimit: 50 },
+        { key: 'FAC', prefix: 'FC', pad: 5, streakLimit: 3000 }
+    ];
+
+    let startIndex = categories.findIndex(c => c.key === state.lastType);
     
-    // Fix: Ensure we find the right starting point even if state name is slightly off
-    let startIndex = typeKeys.indexOf(state.lastType);
-    if (startIndex === -1) startIndex = 0;
-
-    for (let i = startIndex; i < typeKeys.length; i++) {
-        const typeKey = typeKeys[i];
-        const categoryName = categories[typeKey];
-        
-        let currentNum = (typeKey === state.lastType) ? state.lastNum + 1 : 1;
+    for (let i = startIndex; i < categories.length; i++) {
+        const cat = categories[i];
+        let currentNum = (cat.key === state.lastType) ? state.lastNum + 1 : 1;
         let emptyStreak = 0;
-        const MAX_STREAK = 50; // Safety net to skip gaps in numbers
 
-        console.log(`\n📂 Category: ${categoryName} (${typeKey})`);
+        console.log(`\n🚀 Starting Category: ${cat.key}`);
 
-        while (emptyStreak < MAX_STREAK) {
-            console.log(`🔍 Checking ${typeKey} #${currentNum}...`);
-            
+        while (emptyStreak < cat.streakLimit) {
+            const numStr = cat.pad > 0 ? currentNum.toString().padStart(cat.pad, '0') : currentNum.toString();
+            const searchId = `${cat.prefix}${numStr}`;
+
             try {
-                const html = await searchLicense(typeKey, currentNum.toString());
+                const html = await searchLicense(cat.key, searchId);
                 const profile = parseProfile(html);
 
                 if (profile) {
                     emptyStreak = 0;
-                    profile.scrapedAt = new Date().toISOString();
-                    profile.sourceUrl = 'https://portal.ncvmb.org/Verification/search.aspx';
-
-                    // Save to JSONL
-                    fs.appendFileSync(OUTPUT_JSONL, JSON.stringify(profile) + '\n');
-
-                    // Try to update CSV (wrapped in try/catch for EBUSY error)
-                    try {
-                        const lines = fs.readFileSync(OUTPUT_JSONL, 'utf8').trim().split('\n');
-                        const records = lines.map(l => {
-                            const obj = JSON.parse(l);
-                            return { ...obj, publicDisciplinaryActions: JSON.stringify(obj.publicDisciplinaryActions) };
-                        });
-                        fs.writeFileSync(OUTPUT_CSV, new Parser({ fields: csvFields }).parse(records));
-                    } catch (csvErr) {
-                        console.log("⚠️ Note: CSV file is locked (maybe open in Excel?). Data saved to JSONL only.");
+                    const idKey = `${profile.licenseNumber}-${profile.licenseType}`.toLowerCase();
+                    
+                    if (!seen.has(idKey)) {
+                        seen.add(idKey);
+                        profile.scrapedAt = new Date().toISOString();
+                        profile.sourceUrl = 'https://portal.ncvmb.org/Verification/search.aspx';
+                        
+                        fs.appendFileSync(JSONL_PATH, JSON.stringify(profile) + '\n');
+                        updateCSV();
+                        console.log(`✅ Saved: ${profile.fullName} (${searchId})`);
                     }
 
-                    console.log(`✅ Saved: ${profile.fullName} | Status: ${profile.licenseStatus}`);
-
-                    // Save State
                     state.lastNum = currentNum;
-                    state.lastType = typeKey;
+                    state.lastType = cat.key;
                     fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-
-                    await new Promise(r => setTimeout(r, 1000 + Math.random() * 500));
                 } else {
                     emptyStreak++;
-                    console.log(`⚠️ Empty #${currentNum} (Streak: ${emptyStreak}/${MAX_STREAK})`);
-                    // Short wait for empty results
-                    await new Promise(r => setTimeout(r, 500));
+                    if (currentNum % 500 === 0) console.log(`🔍 Tunneling ${cat.key}: ${searchId}...`);
                 }
             } catch (err) {
-                console.error(`❌ Connection error at #${currentNum}: ${err.message}. Retrying in 5s...`);
+                console.error(`❌ Error at ${searchId}:`, err.message);
                 await new Promise(r => setTimeout(r, 5000));
-                continue; 
             }
             currentNum++;
         }
-        console.log(`🏁 Finished ${categoryName}.`);
-        state.lastNum = 0; // Reset for next category
     }
-    console.log("\n✨ ALL NORTH CAROLINA CATEGORIES COMPLETED!");
 }
 
-run().catch(console.error);
+function updateCSV() {
+    try {
+        const lines = fs.readFileSync(JSONL_PATH, 'utf8').trim().split('\n');
+        const records = lines.map(l => {
+            const obj = JSON.parse(l);
+            return { ...obj, publicDisciplinaryActions: JSON.stringify(obj.publicDisciplinaryActions) };
+        });
+        const parser = new Parser({ fields: csvFields });
+        fs.writeFileSync(CSV_PATH, parser.parse(records));
+    } catch (e) {}
+}
+
+main().catch(console.error);

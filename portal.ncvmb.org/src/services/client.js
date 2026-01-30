@@ -25,21 +25,18 @@ const searchLicense = async (type, number) => {
     try {
         const init = await client.get('/Verification/search.aspx');
         const tokens = getViewState(init.data);
-
         const payload = qs.stringify({
             ...tokens,
             'ctl00$Content$ddLicType': type,
             'ctl00$Content$txtLicenseNumber': number,
             'ctl00$Content$btnEnter': 'Search'
         });
-
         const response = await client.post('/Verification/search.aspx', payload, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Referer': 'https://portal.ncvmb.org/Verification/search.aspx'
             }
         });
-
         return response.data;
     } catch (error) {
         console.error(`[Network Error]: ${error.message}`);
