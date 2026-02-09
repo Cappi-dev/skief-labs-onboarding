@@ -29,7 +29,7 @@ async function getProfileDetails(profileId, retries = 3) {
             return response.data; 
         } catch (error) {
             if (error.response && error.response.status === 429) {
-                // Exponential Backoff: Wait 10s, then 20s, then 30s
+                
                 const waitTime = (i + 1) * 10000; 
                 console.warn(`Rate limited (429) on Profile ${profileId}. Retrying in ${waitTime/1000}s... (Attempt ${i+1}/${retries})`);
                 await new Promise(res => setTimeout(res, waitTime));

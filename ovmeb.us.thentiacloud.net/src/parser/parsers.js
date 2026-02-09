@@ -1,36 +1,44 @@
-const parseAndMerge = (summary, details, domain) => {
-    const pairs = details?.result?.nameValuePairs || [];
-    const data = {};
-    pairs.forEach(p => { data[p.name] = p.value; });
+const parseAndMerge = (type, searchData, detailData) => {
+    const data = detailData?.result || detailData || {};
+    
+    const primaryReg = (data.registrationRecords && data.registrationRecords.length > 0) ? data.registrationRecords[0] : {};
+    const primaryPractice = (data.placesOfPractice && data.placesOfPractice.length > 0) ? data.placesOfPractice[0] : {};
 
-    const tables = details?.result?.tables || [];
-    const getTableContent = (title) => {
-        const table = tables.find(t => t.tableTitle === title);
-        if (!table || !table.records) return "None Listed";
-        return table.records.map(r => {
-            return Object.values(r.columnValues || {})
-                .map(v => (typeof v === 'object' ? v.displayValue || v.data : v))
-                .filter(v => v)
-                .join(', ');
-        }).join('; ');
-    };
+    // Combine all disciplinary sources to fix the "No" issue for records with public notices
+    const disciplineSource = (data.disciplinaryActions?.length > 0) ? data.disciplinaryActions : (data.publicNotices || []);
 
     return {
-        jsonl: {
-            licenseNumber: data.REGISTER_PROFILE_LABEL_LICENSE_NUMBER || summary.licenseNumber || '',
-            firstName: data.REGISTER_PROFILE_LABEL_FIRST_NAME || '',
-            lastName: data.REGISTER_PROFILE_LABEL_LAST_NAME || '',
-            fullName: `${data.REGISTER_PROFILE_LABEL_FIRST_NAME || ''} ${data.REGISTER_PROFILE_LABEL_LAST_NAME || ''}`.trim(),
-            licenseType: data.REGISTER_PROFILE_LABEL_LICENSE_CATEGORY || summary.licenseType || '',
-            licenseStatus: data.REGISTER_PROFILE_LABEL_LICENSE_STATUS || '',
-            initialRegistrationDate: data.REGISTER_PROFILE_LABEL_INITIAL_DATE || '',
-            licenseExpirationDate: data.REGISTER_PROFILE_LABEL_EXPIRATION_DATE || '',
-            education: getTableContent("CUST_REGISTER_PROFILE_HEADING_EDUCATION"),
-            practiceSites: getTableContent("REGISTER_PROFILE_HEADING_PRACTICE_SITES"),
-            scrapedAt: new Date().toISOString(),
-            profileUrl: `https://${domain}/webs/ovmeb/register/#/profile/${summary.id}`
-        }
+        // --- Identity ---
+        categoryType: type.toUpperCase(),
+        firstName: type === 'licensee' ? (data.firstName || searchData.firstName || "N/A") : "N/A",
+        lastName: type === 'licensee' ? (data.lastName || searchData.lastName || "N/A") : "N/A",
+        entityName: type === 'licensee' 
+            ? `${data.firstName || ''} ${data.lastName || ''}`.trim() 
+            : (data.facilityName || searchData.facilityName || "N/A"),
+        
+        // --- License Info ---
+        licenseNumber: primaryReg.licenseNumber || searchData.licenseNumber || "N/A",
+        initialLicenseDate: data.initialLicenseDate || "N/A",
+        expirationDate: data.licenseExpirationDate || "N/A",
+        licenseStatus: primaryReg.registrationStatus || searchData.licenseStatus || "N/A",
+
+        // --- Disciplinary Actions ---
+        hasDisciplinaryHistory: disciplineSource.length > 0 ? "Yes" : "No",
+
+        // --- Primary Practice Location ---
+        primaryEmployerName: primaryPractice.employerName || "N/A",
+        primaryPracticeAddress: type === 'licensee' ? primaryPractice.businessAddress : (data.physicalAddress?.street || "N/A"),
+        primaryPracticeCity: type === 'licensee' ? primaryPractice.businessCity : (data.physicalAddress?.city || "N/A"),
+        primaryPracticeZip: type === 'licensee' ? primaryPractice.businessZipCode : (data.physicalAddress?.zipCode || "N/A"),
+        
+        profileUrl: `https://ovmeb.us.thentiacloud.net/webs/ovmeb/register/#/profile/${searchData.id || data.id}`,
+        
+        // --- Full Recursive Data ---
+        allRegistrationHistory: JSON.stringify(data.registrationRecords || []),
+        allPracticeLocations: JSON.stringify(data.placesOfPractice || []),
+        allDisciplinaryActions: JSON.stringify(disciplineSource)
     };
 };
 
+// EXPORT AS OBJECT
 module.exports = { parseAndMerge };

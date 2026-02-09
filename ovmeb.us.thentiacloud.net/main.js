@@ -1,62 +1,75 @@
 const fs = require('fs');
 const path = require('path');
 const { initSession, searchProfiles, getProfileDetails } = require('./src/services/client');
-const { parseAndMerge } = require('./src/parser/parsers');
+const { parseAndMerge } = require('./src/parser/parsers'); // Match the { } import
 const { Parser } = require('json2csv');
 
-const STATE_FILE = path.join(__dirname, 'state.json');
-const domain = 'ovmeb.us.thentiacloud.net';
+const STATE_FILE = './state.json';
+const OUTPUT_DIR = './output';
+const JSONL_PATH = './output/oregon_combined.jsonl';
+const CSV_PATH = './output/oregon_combined.csv';
 
-async function main() {
-    const outputDir = path.join(__dirname, 'output');
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+async function run() {
+    if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
+    
+    // Load state
+    let state = fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE)) : { taskIndex: 0, skip: 0 };
+    const tasks = ['licensee', 'facility'];
 
-    const jsonlPath = path.join(outputDir, `output_${domain}.jsonl`);
-    const csvPath = path.join(outputDir, `output_${domain}.csv`);
+    if (!await initSession()) return console.error("❌ Failed to initialize session.");
 
-    let state = fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) : { skip: 0 };
-    let skip = state.skip;
+    for (let i = state.taskIndex; i < tasks.length; i++) {
+        const type = tasks[i];
+        state.taskIndex = i; 
+        console.log(`🚀 RUNNING: ${type.toUpperCase()} (Starting at skip: ${state.skip})`);
 
-    // Start session handshake
-    await initSession();
+        while (true) {
+            const results = await searchProfiles(type, state.skip, 20);
+            if (!results) {
+                console.error("⛔ Connection error. Check internet or headers.");
+                process.exit(1);
+            }
 
-    while (true) {
-        console.log(`📡 Fetching search page (skip: ${skip})...`);
-        const searchResults = await searchProfiles(skip, 20);
-        const results = searchResults?.result?.dataResults;
-        
-        if (!results || results.length === 0) {
-            console.log("🏁 No records found. Check VPN or search criteria.");
-            break;
-        }
+            const profiles = results.result || [];
+            if (profiles.length === 0) {
+                console.log(`✅ Finished ${type}.`);
+                state.skip = 0;
+                fs.writeFileSync(STATE_FILE, JSON.stringify(state));
+                break;
+            }
 
-        for (const summary of results) {
-            const wait = Math.floor(Math.random() * 3000) + 15000; 
-            console.log(`⏱️ Waiting ${wait/1000}s for Profile ${summary.id}...`);
-            await new Promise(r => setTimeout(r, wait));
-
-            const details = await getProfileDetails(summary.id);
-            if (details) {
-                const { jsonl } = parseAndMerge(summary, details, domain);
-                fs.appendFileSync(jsonlPath, JSON.stringify(jsonl) + '\n');
+            for (const summary of profiles) {
+                // Random delay 3-5s
+                await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
                 
-                try {
-                    const lines = fs.readFileSync(jsonlPath, 'utf8').trim().split('\n');
-                    const records = lines.map(l => JSON.parse(l));
-                    fs.writeFileSync(csvPath, new Parser().parse(records));
-                } catch (e) { console.warn("⚠️ CSV Update Error"); }
-
-                skip++; 
-                fs.writeFileSync(STATE_FILE, JSON.stringify({ skip }));
-                console.log(`✅ Saved: ${jsonl.fullName} (${skip})`);
+                const details = await getProfileDetails(type, summary.id);
+                
+                // FIXED: Using the correctly imported function
+                const record = parseAndMerge(type, summary, details);
+                
+                fs.appendFileSync(JSONL_PATH, JSON.stringify(record) + '\n');
+                
+                // Update skip count and save state immediately
+                state.skip += 1;
+                fs.writeFileSync(STATE_FILE, JSON.stringify(state));
+                
+                console.log(`[SAVED] ${record.entityName} | Discipline: ${record.hasDisciplinaryHistory}`);
+                generateCSV();
             }
         }
     }
+    console.log("🏁 OREGON SCRAPE COMPLETE!");
 }
 
+function generateCSV() {
+    try {
+        if (!fs.existsSync(JSONL_PATH)) return;
+        const data = fs.readFileSync(JSONL_PATH, 'utf8').trim().split('\n').map(l => JSON.parse(l));
+        const csv = new Parser().parse(data);
+        fs.writeFileSync(CSV_PATH, csv);
+    } catch (e) {
+        // Handle file-in-use errors silently
+    }
+}
 
-
-main().catch(err => {
-    console.error("❌ Fatal Error:", err);
-    process.exit(1);
-});
+run().catch(console.error);
