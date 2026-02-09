@@ -102,6 +102,23 @@ As a Data Scraping Intern, my focus is on collecting, structuring, and preparing
 * **Target:** [data.iowaagriculture.gov](https://data.iowaagriculture.gov/licensing_lists/veterinarians/)
 * **Achievement:** Extracted **3,092 records** including License Number, Full Name, City, State, Expiration Date, and Status across 124 pages.
 
+### 6. North Carolina State Project (NCVMB)
+* **Target Portal:** portal.ncvmb.org/Verification/search.aspx
+* **Achievement:** Developed a specialized scraper to handle ASPX-based verification forms, managing __VIEWSTATE and __EVENTVALIDATION tokens to extract validated practitioner credentials.
+
+### 7. Mississippi State Project (Thentia)
+* **Target Portal:** msbvm.portalus.thentiacloud.net
+* **Logic:** Implementation of Thentia-specific API recursive parsing to extract structured veterinary directory listings.
+
+### 8. Nevada State Project (Thentia)
+* **Target Portal:** nsbvme.us.thentiacloud.net
+* **Achievement:** Overcame 403 Forbidden errors through session initialization and strict cookie jar management.
+
+### 9. Oregon State Project (Thentia)
+* **Target Portal:** ovmeb.us.thentiacloud.net
+* **Technical Achievements:** Bifurcated Parsing: Separate logic for Licensees (practitioners) and Facilities (clinics).
+Disciplinary Audit: Audited disciplinaryActions and publicNotices to accurately flag historical board orders.
+
 ---
 
 ## 📜 Core Principles Followed
