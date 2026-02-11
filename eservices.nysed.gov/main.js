@@ -9,6 +9,17 @@ const pad = (n) => n.toString().padStart(6, '0');
 const jsonlPath = `${OUTPUT_DIR}/nysed_output_2026.jsonl`;
 const csvPath = `${OUTPUT_DIR}/nysed_output_2026.csv`;
 
+
+const extract = (field) => {
+    if (!field) return "";
+    
+    const val = (field && typeof field === 'object' && field.hasOwnProperty('value')) ? field.value : field;
+    
+    
+    if (Array.isArray(val)) return val.join(', ');
+    return val === null ? "" : String(val);
+};
+
 async function run() {
     if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
 
@@ -25,7 +36,7 @@ async function run() {
         const profession = professions[i];
         state.professionIndex = i;
 
-        console.log(`🚀 STARTING API MODE: ${profession.name}`);
+        console.log(`🚀 STARTING FINAL API MODE: ${profession.name}`);
 
         while (state.consecutiveEmpty < 50) {
             const currentPadded = pad(state.currentLicense);
@@ -37,22 +48,28 @@ async function run() {
                 if (data && data.name && data.name.value) {
                     const sourceUrl = 'https://eservices.nysed.gov/professions/verification-search';
                     
-                    // CLEANING: Strip <p> and other HTML tags from enforcement actions
                     const cleanEnforcement = (data.noEnforcementActionsFoundMessage || "No Enforcement Actions Found")
                         .replace(/<\/?[^>]+(>|$)/g, "")
                         .trim();
 
                     const record = {
-                        fullName: data.name.value,
-                        licenseNumber: data.licenseNumber.value,
-                        profession: data.profession.value,
-                        licenseStatus: data.status.value,
-                        dateOfLicensure: data.dateOfLicensure.value,
-                        registrationThrough: data.registeredThroughDate.value || "---",
-                        address: data.address.value,
+                        fullName: extract(data.name),
+                        licenseNumber: extract(data.licenseNumber),
+                        profession: extract(data.profession),
+                        professionCode: data.professionCode || profession.code, 
+                        licenseStatus: extract(data.status),
+                        dateOfLicensure: extract(data.dateOfLicensure),
+                        registrationThrough: extract(data.registeredThroughDate) || "---",
+                        address: extract(data.address),
+                        
+                       
+                        additionalQualifications: extract(data.additionalQualifications),
+                        additionalLicenses: extract(data.additionalLicenses),
+                        privileges: extract(data.privileges),
+                        certificateOfAuthorizations: extract(data.certificateOfAuthorizations),
+                        
                         enforcementActions: cleanEnforcement,
-                        // Adding back the URLs
-                        profileUrl: `${sourceUrl}?licenseNumber=${data.licenseNumber.value}&professionCode=${profession.code}`,
+                        profileUrl: `${sourceUrl}?licenseNumber=${extract(data.licenseNumber)}&professionCode=${profession.code}`,
                         sourceUrl: sourceUrl,
                         scrapedAt: new Date().toISOString()
                     };
@@ -73,7 +90,7 @@ async function run() {
             state.currentLicense++;
             fs.writeFileSync(STATE_FILE, JSON.stringify(state));
             
-            await new Promise(r => setTimeout(r, 400)); // Optimized delay
+            await new Promise(r => setTimeout(r, 400)); 
         }
         
         state.currentLicense = 1;
@@ -88,7 +105,8 @@ function generateCSV(jsonlPath, csvPath) {
         if (!fs.existsSync(jsonlPath)) return;
         const lines = fs.readFileSync(jsonlPath, 'utf8').trim().split('\n');
         const data = lines.map(l => JSON.parse(l));
-        fs.writeFileSync(csvPath, new Parser().parse(data));
+        const csv = new Parser().parse(data);
+        fs.writeFileSync(csvPath, csv);
     } catch (e) {}
 }
 
