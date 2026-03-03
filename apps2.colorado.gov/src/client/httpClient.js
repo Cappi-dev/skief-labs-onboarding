@@ -1,4 +1,4 @@
-// src/client/httpClient.js
+
 const axios = require('axios');
 const { wrapper } = require('axios-cookiejar-support');
 const { CookieJar } = require('tough-cookie');
