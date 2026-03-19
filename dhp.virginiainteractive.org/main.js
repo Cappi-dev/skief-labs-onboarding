@@ -9,7 +9,7 @@ import { loadExistingRecords, saveRecord, loadState, saveState } from './src/uti
 // 🛑 Suppress TLS warnings for legacy gov site
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-const ZYTE_API_KEY = '';
+const ZYTE_API_KEY = 'f7b0781dc9f7463aaf1cd6ebdc017ca3';
 
 const client = axios.create({
     proxy: false,
@@ -30,7 +30,7 @@ for (let a of ALPHABET) {
 }
 
 /**
- *  Get a Sticky IP via Zyte Session API
+ * 🔐 Get a Sticky IP via Zyte Session API
  */
 function createZyteSession() {
     return new Promise((resolve, reject) => {
@@ -68,7 +68,7 @@ function getExactId(map, targetName) {
 }
 
 async function runMasterScraper() {
-    console.log(" STARTING VIRGINIA MASTER SCRAPER (V47 - STICKY AXIOS EDITION)...");
+    console.log("🚀 STARTING VIRGINIA MASTER SCRAPER (V47 - STICKY AXIOS EDITION)...");
     
     const existingRecords = loadExistingRecords();
     const stateTracker = loadState();
@@ -78,7 +78,7 @@ async function runMasterScraper() {
     let startComboIdx = stateTracker.comboIdx;
 
     try {
-        console.log(" Fetching Database IDs...");
+        console.log("🗺️ Fetching Database IDs...");
         const initAgent = new HttpsProxyAgent(`http://${ZYTE_API_KEY}:@api.zyte.com:8011`);
         const initRes = await client.get(`https://dhp.virginiainteractive.org/Lookup/Index`, { httpsAgent: initAgent });
         const $init = cheerio.load(initRes.data);
@@ -98,7 +98,7 @@ async function runMasterScraper() {
                 if (!stateId) continue;
 
                 console.log(`\n========================================`);
-                console.log(` TARGET: ${occupation} | STATE: ${targetState}`);
+                console.log(`🎯 TARGET: ${occupation} | STATE: ${targetState}`);
                 console.log(`========================================`);
 
                 let k = (i === startOccIdx && j === startStateIdx) ? startComboIdx : 0;
@@ -111,7 +111,7 @@ async function runMasterScraper() {
                         const zyteSessionId = await createZyteSession();
                         const loopAgent = new HttpsProxyAgent(`http://${ZYTE_API_KEY}:@api.zyte.com:8011`);
                         
-                        //  Sticky session + Local Cookie Control
+                        // 🛡️ Sticky session + Local Cookie Control
                         const zyteHeaders = {
                             'X-Crawlera-Session': zyteSessionId,
                             'X-Crawlera-Cookies': 'disable'
