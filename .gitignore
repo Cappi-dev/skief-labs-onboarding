@@ -1,3 +1,6 @@
+# Security
+.env
+
 # Data Outputs
 *.csv
 *.jsonl
