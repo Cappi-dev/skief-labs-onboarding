@@ -1,51 +1,115 @@
 require('dotenv').config();
-const axios = require('axios');
+const puppeteer = require('puppeteer');
 const cheerio = require('cheerio');
 const fs = require('fs');
 
 const BASE_URL = 'https://opencorporates.com';
 
-// Dynamically read the cookie from the Session Manager's output
-let sessionCookie = '';
+let sessionCookies = [];
 try {
     const cookieData = JSON.parse(fs.readFileSync('cookies.json', 'utf8'));
-    sessionCookie = cookieData.cookie;
+    const rawString = cookieData.cookie;
+    
+    sessionCookies = rawString.split('; ').map(pair => {
+        const [name, ...rest] = pair.split('=');
+        return { 
+            name: name, 
+            value: rest.join('='), 
+            domain: '.opencorporates.com' 
+        };
+    });
     console.log("Successfully loaded session cookie from cookies.json");
 } catch (error) {
     console.error("Could not read cookies.json. Please run sessionManager.js first.");
     process.exit(1); 
 }
 
-const axiosConfig = {
-    headers: {
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'accept-language': 'en-US,en;q=0.9',
-        'cookie': sessionCookie,
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36'
-    }
-};
-
-async function searchCompany(searchTerm, exactCompanyName) {
+async function fetchWithPuppeteer(browser, targetUrl) {
+    const page = await browser.newPage();
+    await page.setCookie(...sessionCookies);
+    
     try {
-        console.log(`\nSearching for: "${searchTerm}"...`);
-        const response = await axios.get(`${BASE_URL}/companies`, {
-            params: { q: searchTerm, type: 'companies' },
-            ...axiosConfig
-        });
+        await page.goto(targetUrl, { waitUntil: 'networkidle2' });
+        
+        let pageTitle = await page.title();
+        
+        // If we hit the puzzle, freeze the code and wait for you to solve it
+        if (pageTitle.toLowerCase().includes('haproxy') || pageTitle.toLowerCase().includes('security') || pageTitle.toLowerCase().includes('challenge')) {
+            console.log("\nHAProxy Captcha detected!");
+            console.log("Waiting 30 seconds... Please click the Captcha box in the open Chrome window right now!");
+            
+            try {
+                await page.waitForFunction(
+                    '!(document.title.toLowerCase().includes("haproxy") || document.title.toLowerCase().includes("challenge") || document.title.toLowerCase().includes("security"))',
+                    { timeout: 30000 }
+                );
+                console.log("Captcha cleared! Resuming extraction...");
+                
+                // Wait 3 extra seconds to make sure the company list fully loads into the HTML
+                await new Promise(r => setTimeout(r, 3000));
+            } catch (e) {
+                console.log("Timed out waiting for the Captcha to be solved.");
+            }
+        }
+        
+        const htmlData = await page.content();
+        await page.close();
+        return htmlData;
+    } catch (error) {
+        console.error(`Error loading page ${targetUrl}:`, error.message);
+        if (!page.isClosed()) {
+            await page.close();
+        }
+        return null;
+    }
+}
 
-        const $ = cheerio.load(response.data);
+async function searchCompany(browser, searchTerm, exactCompanyName) {
+    try {
+        console.log(`\nSearching for: "${searchTerm}" using Puppeteer...`);
+        
+        const searchUrl = `${BASE_URL}/companies?q=${searchTerm}&type=companies`;
+        const htmlData = await fetchWithPuppeteer(browser, searchUrl);
+
+        if (!htmlData) {
+            return null;
+        }
+
+        const $ = cheerio.load(htmlData);
+        
+        const pageTitle = $('title').text().trim();
+        console.log(`[Debug] Page Title: ${pageTitle}`);
+
+        // FIX: Removed the htmlData.includes('captcha') check!
+        if (pageTitle.toLowerCase().includes('security') || pageTitle.toLowerCase().includes('attention') || pageTitle.toLowerCase().includes('haproxy') || pageTitle.toLowerCase().includes('challenge')) {
+            console.log("BLOCK: OpenCorporates blocked the request.");
+            return null;
+        }
+
         let foundUrl = null;
+        let companiesFound = 0;
 
         $('#companies .search-result.company').each((index, element) => {
+            companiesFound++;
             const companyLink = $(element).find('.company_search_result');
             const companyName = companyLink.text().trim();
-            if (companyName.toLowerCase() === exactCompanyName.toLowerCase()) {
+            
+            const cleanFoundName = companyName.toLowerCase().replace(/[,.]/g, '');
+            const cleanTargetName = exactCompanyName.toLowerCase().replace(/[,.]/g, '');
+
+            if (cleanFoundName === cleanTargetName) {
                 foundUrl = `${BASE_URL}${companyLink.attr('href')}`;
             }
         });
 
+        if (companiesFound === 0) {
+            console.log("No companies were found on the page.");
+        } else {
+            console.log(`Found ${companiesFound} companies on the page.`);
+        }
+
         if (foundUrl) {
-            console.log(`Found Company URL: ${foundUrl}`);
+            console.log(`Exact match found: ${foundUrl}`);
             return foundUrl;
         } else {
             console.log(`Could not find an exact match for ${exactCompanyName}.`);
@@ -57,11 +121,14 @@ async function searchCompany(searchTerm, exactCompanyName) {
     }
 }
 
-async function scrapeOfficerDetails(officerUrl) {
+async function scrapeOfficerDetails(browser, officerUrl) {
     try {
         console.log(`  -> Fetching Officer details from: ${officerUrl}`);
-        const response = await axios.get(officerUrl, axiosConfig);
-        const $ = cheerio.load(response.data);
+        const htmlData = await fetchWithPuppeteer(browser, officerUrl);
+        
+        if (!htmlData) return null;
+
+        const $ = cheerio.load(htmlData);
         
         const officerName = $('h1.wrapping_heading').text().trim() || $('h1').first().text().trim() || "Unknown";
         
@@ -88,11 +155,14 @@ async function scrapeOfficerDetails(officerUrl) {
     }
 }
 
-async function scrapeCompanyDetails(companyUrl) {
+async function scrapeCompanyDetails(browser, companyUrl) {
     try {
         console.log(`\nScraping company data from: ${companyUrl}...`);
-        const response = await axios.get(companyUrl, axiosConfig);
-        const $ = cheerio.load(response.data);
+        const htmlData = await fetchWithPuppeteer(browser, companyUrl);
+        
+        if (!htmlData) return null;
+
+        const $ = cheerio.load(htmlData);
 
         const companyData = {
             sourceUrl: companyUrl,
@@ -123,11 +193,10 @@ async function scrapeCompanyDetails(companyUrl) {
         console.log(`Found ${officerLinks.length} unique officer links. Extracting...`);
 
         for (let i = 0; i < officerLinks.length; i++) {
-            const officerInfo = await scrapeOfficerDetails(officerLinks[i]);
+            const officerInfo = await scrapeOfficerDetails(browser, officerLinks[i]);
             if (officerInfo) {
                 companyData.officers.push(officerInfo);
             }
-            await new Promise(r => setTimeout(r, 1000));
         }
 
         return companyData;
@@ -138,16 +207,25 @@ async function scrapeCompanyDetails(companyUrl) {
 }
 
 async function run() {
-    const url = await searchCompany("skief", "SKIEF LABS CORP");
+    console.log("Starting Puppeteer Data Extractor...");
+    const browser = await puppeteer.launch({ 
+        headless: false, 
+        args: ['--no-sandbox', '--disable-web-security'] 
+    });
+
+    const url = await searchCompany(browser, "skief", "SKIEF LABS CORP");
     if (url) {
-        const finalData = await scrapeCompanyDetails(url);
+        const finalData = await scrapeCompanyDetails(browser, url);
         
         const filename = 'skief_labs_extract.json';
         fs.writeFileSync(filename, JSON.stringify(finalData, null, 4));
         
-        console.log(`\nSuccessfully completed full extraction!`);
+        console.log(`\nSuccessfully completed full extraction.`);
         console.log(`Data saved to: ${filename}`);
     }
+    
+    console.log("Closing browser...");
+    await browser.close();
 }
 
 run();
