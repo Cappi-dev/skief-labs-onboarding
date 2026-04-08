@@ -19,4 +19,4 @@ You will need Node.js installed on your machine, as well as a 2Captcha account w
 1. Clone this repository to your local machine.
 2. Open your terminal in the project folder and install the required dependencies:
    ```bash
-   npm install puppeteer axios cheerio dotenv
+   pnpm install puppeteer axios cheerio dotenv
